@@ -178,7 +178,7 @@ class ProSafeLinux:
 
     def recv(self, maxlen=8192, timeout=0.005):
         "receive a packet from the switch"
-        #self.rsocket.settimeout(timeout)
+        self.rsocket.settimeout(timeout)
         try:
             message, address = self.rsocket.recvfrom(maxlen)
         except socket.timeout:
