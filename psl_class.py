@@ -12,33 +12,17 @@ import fcntl
 import psl_typ
 import inspect
 import errno
-
+import netifaces
 
 def get_hw_addr(ifname):
     "gives the hardware (mac) address of an interface (eth0,eth1..)"
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    ifname = ifname.encode('ascii')  # struct.pack requires bytes in Python 3
-    info = fcntl.ioctl(sock.fileno(), 0x8927, struct.pack('256s', ifname[:15]))
-    if type(info) is str:
-        return ''.join(['%02x:' % ord(char) for char in info[18:24]])[:-1]
-    else:
-        # Python 3 returns a list of bytes from ioctl, no need for ord()
-        return ''.join(['%02x:' % char for char in info[18:24]])[:-1]
+    return netifaces.ifaddresses(ifname)[18][0]['addr']
 
 def get_ip_address(ifname):
     "returns the first ip address of an interface"
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    ifname = ifname.encode('ascii')  # struct.pack requires bytes in Python 3
-    try:
-        # 0x8915 = SIOCGIFADDR
-        addr = socket.inet_ntoa(fcntl.ioctl(sock.fileno(), 0x8915,
-                                            struct.pack('256s',
-                                            ifname[:15]))[20:24])
-        return addr
-    except IOError as err:
-        if err.errno == errno.EADDRNOTAVAIL:
-            return None
-        raise
+    ip = netifaces.ifaddresses(ifname)[2][0]['addr']
+    return ip
 
 def pack_mac(value):
     "packs the hardware address (mac) to the internal representation"
@@ -149,7 +133,8 @@ class ProSafeLinux:
         self.rsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.rsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.rsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.rsocket.bind(("255.255.255.255", self.RECPORT))
+        broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
+        self.rsocket.bind((broadcast_addr, self.RECPORT))
 
         return True
 
@@ -190,10 +175,11 @@ class ProSafeLinux:
 
     def recv(self, maxlen=8192, timeout=0.005):
         "receive a packet from the switch"
-        self.rsocket.settimeout(timeout)
+        #self.rsocket.settimeout(timeout)
         try:
             message, address = self.rsocket.recvfrom(maxlen)
         except socket.timeout:
+            print "Test"
             return (None, None)
         except socket.error as error:
             # according to the Python documentation this error
@@ -297,10 +283,11 @@ class ProSafeLinux:
             data += pdata
         return data
 
-    def ip_from_mac(self, mac):
+    def ip_from_mac(self, mac, interface):
         "query for the ip of a switch with a given mac address"
         if mac is None:
-            return "255.255.255.255"
+            broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
+            return broadcast_addr
         if mac in self.mac_cache:
             return self.mac_cache[mac]
         # FIXME: Search in /proc/net/arp if mac there use this one
@@ -308,19 +295,21 @@ class ProSafeLinux:
         # for line in f:
         #   print line
         query_arr = [self.CMD_MAC, self.CMD_IP]
-        message, address = self.query(query_arr, mac, with_address=True, use_ip_func=False)
+        message, address = self.query(query_arr, mac, interface, with_address=True, use_ip_func=False)
         if self.CMD_MAC in message:
             if message[self.CMD_MAC].capitalize() == mac.capitalize():
                 return address[0]
         print("can't find mac: " + mac)
-        return "255.255.255.255"
+        broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
+        return broadcast_addr
 
-    def send_query(self, cmd_arr, mac, use_ip_func=True):
+    def send_query(self, cmd_arr, mac, interface, use_ip_func=True):
         "request some values from a switch, without changing them"
         if use_ip_func:
-            ipadr = self.ip_from_mac(mac)
+            ipadr = self.ip_from_mac(mac, interface)
         else:
-            ipadr = "255.255.255.255"
+            broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
+            ipadr = broadcast_addr
         data = self.baseudp(destmac=mac, ctype=self.CTYPE_QUERY_REQUEST)
         for cmd in cmd_arr:
             data += self.addudp(cmd)
@@ -328,12 +317,12 @@ class ProSafeLinux:
         self.outdata = {}
         self.send(ipadr, self.SENDPORT, data)
 
-    def query(self, cmd_arr, mac, with_address=False, use_ip_func=True):
+    def query(self, cmd_arr, mac, interface, with_address=False, use_ip_func=True):
         "get some values from the switch, but do not change them"
         # translate non-list to list
         if type(cmd_arr).__name__ != 'tupe' and type(cmd_arr).__name__ != 'list':
             cmd_arr = (cmd_arr, )
-        self.send_query(cmd_arr, mac, use_ip_func)
+        self.send_query(cmd_arr, mac, interface, use_ip_func)
         message, address = self.recv_all()
         if with_address:
             return (self.parse_data(message), address)
@@ -343,7 +332,7 @@ class ProSafeLinux:
     def transmit(self, cmddict, mac):
         "change something in the switch, like name, mac ..."
         transmit_counter = 0
-        ipadr = self.ip_from_mac(mac)
+        ipadr = self.ip_from_mac(mac, interface)
         data = self.baseudp(destmac=mac, ctype=self.CTYPE_TRANSMIT_REQUEST)
         if type(cmddict).__name__ == 'dict':
             if self.CMD_PASSWORD in cmddict:
@@ -372,14 +361,14 @@ class ProSafeLinux:
         data += self.addudp(self.CMD_PASSWORD, new)
         return self.transmit(data, mac)
  
-    def discover(self):
+    def discover(self, interface):
         "find any switch in the network"
         query_arr = [self.CMD_MODEL,
                    self.CMD_NAME,
                    self.CMD_MAC,
                    self.CMD_DHCP,
                    self.CMD_IP]
-        message = self.query(query_arr, None)
+        message = self.query(query_arr, None, interface)
         self.mac_cache[message[self.CMD_MAC]] = message[self.CMD_IP]
         return message
 

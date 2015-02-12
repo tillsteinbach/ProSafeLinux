@@ -13,7 +13,7 @@ import psl_typ
 def discover(args, switch):
     "Search for Switches"
     print("Searching for ProSafe Plus Switches ...\n")
-    data = switch.discover()
+    data = switch.discover("tap0")
     for entry in data.keys():
         print entry.get_name() + ': ' + data[entry]
         print ''
