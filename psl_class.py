@@ -182,7 +182,6 @@ class ProSafeLinux:
         try:
             message, address = self.rsocket.recvfrom(maxlen)
         except socket.timeout:
-            print "Test"
             return (None, None)
         except socket.error as error:
             # according to the Python documentation this error
