@@ -99,6 +99,7 @@ class ProSafeLinux:
 
     def __init__(self):
         "constructor"
+        self.interface = None
         self.myhost = None
         self.srcmac = None
         self.ssocket = None
@@ -132,9 +133,11 @@ class ProSafeLinux:
         # receive socket
         self.rsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.rsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.rsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self.rsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
-        self.rsocket.bind((broadcast_addr, self.RECPORT))
+        #self.rsocket.bind((broadcast_addr, self.RECPORT))
+        self.rsocket.bind(("0.0.0.0", self.RECPORT))
 
         return True
 
@@ -329,7 +332,7 @@ class ProSafeLinux:
         else:
             return self.parse_data(message)
 
-    def transmit(self, cmddict, mac):
+    def transmit(self, cmddict, mac, interface):
         "change something in the switch, like name, mac ..."
         transmit_counter = 0
         ipadr = self.ip_from_mac(mac, interface)

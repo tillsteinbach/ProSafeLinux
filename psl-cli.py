@@ -13,7 +13,7 @@ import psl_typ
 def discover(args, switch):
     "Search for Switches"
     print("Searching for ProSafe Plus Switches ...\n")
-    data = switch.discover("tap0")
+    data = switch.discover(switch.interface)
     for entry in data.keys():
         print entry.get_name() + ': ' + data[entry]
         print ''
@@ -46,7 +46,7 @@ def set_switch(args, switch):
             print error
     else:
         print("Changing Values..\n")
-        result = switch.transmit(cmds, args.mac[0])
+        result = switch.transmit(cmds, args.mac[0], switch.interface)
         if 'error' in result:
             print "FAILED: Error with " + str(result['error'])
 
@@ -66,7 +66,7 @@ def query(args, switch):
                     query_cmd.append(k)
         else:
             query_cmd.append(switch.get_cmd_by_name(qarg))
-    switchdata = switch.query(query_cmd, args.mac[0])
+    switchdata = switch.query(query_cmd, args.mac[0], switch.interface)
     for key in list(switchdata.keys()):
         if isinstance(key, psl_typ.PslTyp):
             key.print_result(switchdata[key])
@@ -86,7 +86,7 @@ def query_raw(args, switch):
         query_cmd = []
         query_cmd.append(psl_typ.PslTypHex(i, "Command %d" % i))
         try:
-            switchdata = switch.query(query_cmd, args.mac[0])
+            switchdata = switch.query(query_cmd, args.mac[0], switch.interface)
             found = None
             for qcmd in list(switchdata.keys()):
                 if (isinstance(qcmd, psl_typ.PslTyp)):
@@ -175,6 +175,7 @@ def main():
 
     args = parser.parse_args()
     interface = args.interface[0]
+    switch.interface = interface
 
     if not switch.bind(interface):
         print("Interface has no addresses, cannot talk to switch")

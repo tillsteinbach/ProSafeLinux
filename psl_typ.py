@@ -33,7 +33,8 @@ class PslTyp:
 
     def unpack_cmd(self, value):
         "unpack something given from the cmd line"
-        raise NotImplementedError
+	#raise NotImplementedError
+        return self.unpack_py(value)
 
     def print_result(self, value):
         "print a result for a query action"
@@ -242,11 +243,11 @@ class PslTypHex(PslTyp):
         return binascii.hexlify(value).decode()
 
     def pack_cmd(self, value):
-        return self.pack_py(self, value)
+        return self.pack_py(value)
 
     def unpack_cmd(self, value):
         # I think we don't need the double-decode here, do we?
-        return self.unpack_py(self, value)
+        return self.unpack_py(value)
 
 ################################################################################
 
@@ -704,6 +705,7 @@ class PslTypPortBasedQOS(PslTyp):
                                    row["port"],
                                    row["qos"]))
 
+
 ################################################################################
 
 
@@ -726,6 +728,8 @@ class PslTypIGMPSnooping(PslTyp):
     def is_setable(self):
         return True
        
+    def unpack_cmd(self, value):
+        return self.unpack_py(value)
 
 ################################################################################
 

@@ -67,7 +67,7 @@ class NetgearCMD(cmd.Cmd): # {{{
         else:
             querycmd = self.switch.get_cmd_by_name(query)
             if querycmd != None:
-                switchdata = self.switch.query(querycmd, self.selectedswitch['mac'])
+                switchdata = self.switch.query(querycmd, self.selectedswitch['mac'], "tap0")
                 for key in switchdata.keys():
                     print("%s - %s" % (key.get_name(), switchdata[key]))
             else:
