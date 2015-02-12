@@ -288,8 +288,9 @@ class ProSafeLinux:
     def ip_from_mac(self, mac, interface):
         "query for the ip of a switch with a given mac address"
         if mac is None:
-            broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
-            return broadcast_addr
+            #broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
+            #return broadcast_addr
+            return "255.255.255.255"
         if mac in self.mac_cache:
             return self.mac_cache[mac]
         # FIXME: Search in /proc/net/arp if mac there use this one
@@ -302,8 +303,9 @@ class ProSafeLinux:
             if message[self.CMD_MAC].capitalize() == mac.capitalize():
                 return address[0]
         print("can't find mac: " + mac)
-        broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
-        return broadcast_addr
+        #broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
+        #return broadcast_addr
+        return "255.255.255.255"
 
     def send_query(self, cmd_arr, mac, interface, use_ip_func=True):
         "request some values from a switch, without changing them"
@@ -311,7 +313,8 @@ class ProSafeLinux:
             ipadr = self.ip_from_mac(mac, interface)
         else:
             broadcast_addr =  netifaces.ifaddresses(interface)[2][0]['broadcast']
-            ipadr = broadcast_addr
+            #ipadr = broadcast_addr
+            ipadr = "255.255.255.255"
         data = self.baseudp(destmac=mac, ctype=self.CTYPE_QUERY_REQUEST)
         for cmd in cmd_arr:
             data += self.addudp(cmd)
